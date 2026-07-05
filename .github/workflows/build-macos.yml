@@ -1,12 +1,9 @@
 name: Build macOS App
 
 on:
-  # 每小时检查上游更新并自动构建
   schedule:
     - cron: '0 * * * *'
-  # 手动触发
   workflow_dispatch:
-  # 监听 fork 自身的 push（自己的修改也会触发）
   push:
     branches: [main]
 
@@ -16,81 +13,53 @@ env:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
-      # Step 1: 检出代码
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Step 2: 同步上游仓库
-      - name: Sync from upstream
+      - name: Sync upstream
         run: |
           git remote add upstream https://github.com/XxHuberrr/Mineradio.git 2>/dev/null || true
           git fetch upstream
-
-          LOCAL=$(git rev-parse HEAD)
           UPSTREAM=$(git rev-parse upstream/main)
-          echo "本地:   $LOCAL"
-          echo "上游:   $UPSTREAM"
-
+          LOCAL=$(git rev-parse HEAD)
+          echo "本地: $LOCAL"
+          echo "上游: $UPSTREAM"
           if [ "$LOCAL" != "$UPSTREAM" ]; then
             echo "检测到上游有更新，正在合并..."
             git merge upstream/main --no-edit
-            echo "updated=true" >> $GITHUB_OUTPUT
           else
-            echo "上游已是最新，无需构建"
-            echo "updated=false" >> $GITHUB_OUTPUT
+            echo "已是最新，无需构建"
           fi
-        id: sync
 
-      # Step 3: 安装 Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Step 4: 安装依赖
-      - name: Install dependencies
+      - name: Install deps
         run: npm install --registry=https://registry.npmmirror.com
 
-      # Step 5: 安装 Electron
       - name: Install Electron
         run: |
           cd node_modules/electron
           ELECTRON_MIRROR=${{ env.ELECTRON_MIRROR }} node install.js
 
-      # Step 6: 应用 Metal 修复（自动打补丁）
-      - name: Apply Metal GPU fix for macOS
+      - name: Apply Metal fix
         run: |
           node -e "
           const fs = require('fs');
-          const mainPath = 'desktop/main.js';
-          let content = fs.readFileSync(mainPath, 'utf8');
-
-          // 检测是否已有 Metal 修复
-          if (content.includes(\"process.platform === 'darwin'\") && content.includes('use-angle') && content.includes('metal')) {
-            console.log('Metal 修复已存在，跳过');
-            process.exit(0);
-          }
-
-          // 原代码（旧）
-          const old = \`const CHROMIUM_PERFORMANCE_SWITCHES = [
-  ['autoplay-policy', 'no-user-gesture-required'],
-  ['ignore-gpu-blocklist'],
-  ['enable-gpu-rasterization'],
-  ['enable-oop-rasterization'],
-  ['enable-zero-copy'],
-  ['enable-accelerated-2d-canvas'],
-  ['disable-background-timer-throttling'],
-  ['disable-renderer-backgrounding'],
-  ['disable-backgrounding-occluded-windows'],
-  ['force_high_performance_gpu'],
-  ['use-angle', 'd3d11'],
-\`;
-
-          // 新代码（macOS 用 Metal）
-          const replacement = \`const CHROMIUM_PERFORMANCE_SWITCHES = [
+          const content = fs.readFileSync('desktop/main.js', 'utf8');
+          if (!content.includes(\"process.platform === 'darwin'\")) {
+            const old = \"['use-angle', 'd3d11']\";
+            if (content.includes(old)) {
+              const fixed = content.replace(
+                /const CHROMIUM_PERFORMANCE_SWITCHES = \\[\s*\\['autoplay-policy'[^\\]]*\\],?\s*\\['use-angle', 'd3d11'\\],\s*\\];/,
+                \`const CHROMIUM_PERFORMANCE_SWITCHES = [
   ['autoplay-policy', 'no-user-gesture-required'],
   ['ignore-gpu-blocklist'],
   ['enable-gpu-rasterization'],
@@ -103,64 +72,36 @@ jobs:
   ['force_high_performance_gpu'],
 ];
 
-// macOS 使用 Metal，Windows 使用 D3D11
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('use-angle', 'metal');
 } else if (process.platform === 'win32') {
   app.commandLine.appendSwitch('use-angle', 'd3d11');
-}
-\`;
-
-          if (content.includes(\"['use-angle', 'd3d11']\")) {
-            content = content.replace(old, replacement);
-            fs.writeFileSync(mainPath, content);
-            console.log('Metal 修复已应用');
-          } else {
-            console.log('未找到目标代码，跳过修复');
+}\`
+              );
+              fs.writeFileSync('desktop/main.js', fixed);
+              console.log('Metal 修复已应用');
+            }
           }
           "
 
-      # Step 7: 配置 macOS 构建
-      - name: Configure macOS build
+      - name: Configure build
         run: |
           node -e "
-          const fs = require('fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-
-          // 添加 macOS 构建配置
+          const pkg = JSON.parse(require('fs').readFileSync('package.json'));
           pkg.build = pkg.build || {};
-          pkg.build.mac = {
-            category: 'public.app-category.music',
-            target: [
-              { target: 'dmg', arch: ['x64', 'arm64'] }
-            ]
-          };
-          // 移除 Windows 专用工具
+          pkg.build.mac = { category: 'public.app-category.music', target: ['dmg'] };
           delete pkg.devDependencies['rcedit'];
-
-          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-          console.log('package.json 已更新 macOS 构建配置');
+          require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
 
-      # Step 8: 构建 macOS 应用
-      - name: Build macOS app
-        run: npx electron-builder --mac --dir
+      - name: Build
+        run: npx electron-builder --mac
         env:
           ELECTRON_MIRROR: ${{ env.ELECTRON_MIRROR }}
 
-      # Step 9: 上传构建产物
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Mineradio-macOS
-          path: dist/mac-*/*.app
-          retention-days: 7
-        continue-on-error: true
-
-      - name: Upload DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: Mineradio-macOS-dmg
           path: dist/*.dmg
           retention-days: 7
-        continue-on-error: true
