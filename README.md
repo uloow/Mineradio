@@ -4,6 +4,21 @@
 
 Mineradio 是一款 Windows 桌面沉浸式音乐播放器，把天气电台、搜索播放、歌词舞台、粒子视觉和 3D 歌单架组合成一个更接近现场感的私人音乐空间。
 
+## macOS 适配版本
+
+> ⚠️ 主仓库仅支持 Windows。此版本为 macOS 适配版，由社区维护。
+
+| 下载入口 | 说明 |
+| --- | --- |
+| GitHub Actions | [点击下载最新构建](https://github.com/uloow/Mineradio/actions) |
+
+**适配内容：**
+- GPU 渲染适配 Metal（macOS 原生加速）
+- 自动同步上游更新
+- 自动构建 macOS 应用
+
+---
+
 ## 立即下载 Windows 安装包
 
 > 国内 GitHub 小白用户：优先使用蓝奏云下载，打开链接后直接下载 `Mineradio-1.1.1-Setup.exe`，速度通常比 GitHub Release 更稳、更接近满速。
