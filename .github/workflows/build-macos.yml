@@ -16,8 +16,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -27,81 +26,58 @@ jobs:
           git fetch upstream
           UPSTREAM=$(git rev-parse upstream/main)
           LOCAL=$(git rev-parse HEAD)
-          echo "本地: $LOCAL"
-          echo "上游: $UPSTREAM"
+          echo "Local: $LOCAL"
+          echo "Upstream: $UPSTREAM"
           if [ "$LOCAL" != "$UPSTREAM" ]; then
-            echo "检测到上游有更新，正在合并..."
+            echo "New upstream commits found, merging..."
             git merge upstream/main --no-edit
-          else
-            echo "已是最新，无需构建"
           fi
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm install --registry=https://registry.npmmirror.com
 
       - name: Install Electron
         run: |
           cd node_modules/electron
-          ELECTRON_MIRROR=${{ env.ELECTRON_MIRROR }} node install.js
+          node install.js
 
       - name: Apply Metal fix
         run: |
-          node -e "
-          const fs = require('fs');
-          const content = fs.readFileSync('desktop/main.js', 'utf8');
-          if (!content.includes(\"process.platform === 'darwin'\")) {
-            const old = \"['use-angle', 'd3d11']\";
-            if (content.includes(old)) {
-              const fixed = content.replace(
-                /const CHROMIUM_PERFORMANCE_SWITCHES = \\[\s*\\['autoplay-policy'[^\\]]*\\],?\s*\\['use-angle', 'd3d11'\\],\s*\\];/,
-                \`const CHROMIUM_PERFORMANCE_SWITCHES = [
-  ['autoplay-policy', 'no-user-gesture-required'],
-  ['ignore-gpu-blocklist'],
-  ['enable-gpu-rasterization'],
-  ['enable-oop-rasterization'],
-  ['enable-zero-copy'],
-  ['enable-accelerated-2d-canvas'],
-  ['disable-background-timer-throttling'],
-  ['disable-renderer-backgrounding'],
-  ['disable-backgrounding-occluded-windows'],
-  ['force_high_performance_gpu'],
-];
-
-if (process.platform === 'darwin') {
-  app.commandLine.appendSwitch('use-angle', 'metal');
-} else if (process.platform === 'win32') {
-  app.commandLine.appendSwitch('use-angle', 'd3d11');
-}\`
-              );
-              fs.writeFileSync('desktop/main.js', fixed);
-              console.log('Metal 修复已应用');
-            }
-          }
-          "
+          sed -i.bak \
+            "s/\['use-angle', 'd3d11'\]//" \
+            desktop/main.js
+          
+          # 在末尾添加 Metal 检测代码（在 const gotSingleInstanceLock 之前）
+          sed -i '/const gotSingleInstanceLock = app.requestSingleInstanceLock();/i\
+          // macOS 使用 Metal，Windows 使用 D3d11\
+          if (process.platform === '"'"'darwin'"'"') {\
+            app.commandLine.appendSwitch('"'"'use-angle'"'"', '"'"'metal'"'"');\
+          } else if (process.platform === '"'"'win32'"'"') {\
+            app.commandLine.appendSwitch('"'"'use-angle'"'"', '"'"'d3d11'"'"');\
+          }\
+          ' desktop/main.js
+          
+          echo "Metal fix applied"
 
       - name: Configure build
         run: |
-          node -e "
-          const pkg = JSON.parse(require('fs').readFileSync('package.json'));
+          node -e '
+          const pkg = JSON.parse(require("fs").readFileSync("package.json"));
           pkg.build = pkg.build || {};
-          pkg.build.mac = { category: 'public.app-category.music', target: ['dmg'] };
-          delete pkg.devDependencies['rcedit'];
-          require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-          "
+          pkg.build.mac = { category: "public.app-category.music" };
+          delete pkg.devDependencies["rcedit"];
+          require("fs").writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+          console.log("Build config updated");
+          '
 
       - name: Build
         run: npx electron-builder --mac
-        env:
-          ELECTRON_MIRROR: ${{ env.ELECTRON_MIRROR }}
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: Mineradio-macOS
           path: dist/*.dmg
-          retention-days: 7
