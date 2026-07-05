@@ -24829,13 +24829,13 @@ async function startGestureControl() {
   if (gestureActive) return;
   showToast('正在加载手势识别…');
   try {
-    await loadScriptOnce('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
-    await loadScriptOnce('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js');
+    await loadScriptOnce('./vendor/mediapipe/camera_utils.js');
+    await loadScriptOnce('./vendor/mediapipe/hands.js');
     gestureVideo = document.createElement('video');
     gestureVideo.playsInline = true; gestureVideo.muted = true;
     gestureVideo.style.display = 'none';
     document.body.appendChild(gestureVideo);
-    gestureHands = new Hands({ locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f; } });
+    gestureHands = new Hands({ locateFile: function(f){ return './vendor/mediapipe/' + f; } });
     // modelComplexity:1 比 0 更稳定, 但仍流畅. 提高 confidence 减少误检
     gestureHands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
     gestureHands.onResults(function(res){
