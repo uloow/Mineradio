@@ -59,7 +59,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: macos-latest
-          release_name: Mineradio macOS 构建
+          name: Mineradio macOS 构建
           body: |
             ## Mineradio macOS 构建
 
