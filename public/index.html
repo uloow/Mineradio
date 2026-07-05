@@ -3198,7 +3198,7 @@ var fxDefaults = {
   intensity: 0.85,
   cinemaShake: 0.5,
   depth: 1.0,
-  coverResolution: 1.55,
+  coverResolution: 1.00,
   point: 1.0, speed: 1.0, twist: 0.0, color: 1.10, scatter: 0.0, bgFade: 0.20,
   bloomStrength: 0.62,
   lyricGlowStrength: 0.28,
@@ -3275,7 +3275,7 @@ var PACKAGED_DEFAULT_FX_SNAPSHOT = Object.freeze({
   intensity: 0.85,
   cinemaShake: 0.5,
   depth: 1,
-  coverResolution: 1.55,
+  coverResolution: 1.00,
   point: 1,
   speed: 1,
   twist: 0,
@@ -3717,19 +3717,19 @@ function installRenderPowerHooks() {
 //  Three.js 场景
 // ============================================================
 var scene = new THREE.Scene();
-scene.background = null;
+scene.background = new THREE.Color(0x050608);
 var camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-var RENDER_DPR_CAP = 1.35;
-var RENDER_PIXEL_BUDGET = 5200000;
+var RENDER_DPR_CAP = 1.0;
+var RENDER_PIXEL_BUDGET = 3000000;
 var RENDER_MIN_DPR = 0.72;
 // 0 = display vsync. Keep visible playback high-refresh capable instead of capping 120Hz+ screens to 60/72.
-var RENDER_VISIBLE_VSYNC = true;
-var RENDER_ACTIVE_FPS = 0;
-var RENDER_LARGE_FPS = 0;
-var RENDER_HUGE_FPS = 0;
-var RENDER_INTERACTION_FPS = 0;
-var RENDER_INTERACTION_LARGE_FPS = 0;
-var RENDER_INTERACTION_HUGE_FPS = 0;
+var RENDER_VISIBLE_VSYNC = false;
+var RENDER_ACTIVE_FPS = 24;
+var RENDER_LARGE_FPS = 24;
+var RENDER_HUGE_FPS = 20;
+var RENDER_INTERACTION_FPS = 36;
+var RENDER_INTERACTION_LARGE_FPS = 30;
+var RENDER_INTERACTION_HUGE_FPS = 24;
 var RENDER_INTERACTION_HOLD_MS = 900;
 var renderInteractionBoostUntil = 0;
 var renderInteractionReason = '';
@@ -3770,7 +3770,7 @@ function getRenderLoadTier() {
   if (cssPixels >= 3200000 || renderPixels >= 3600000) return 1;
   return 0;
 }
-var renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
+var renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'default' });
 renderer.setClearColor(0x000000, 0);
 renderer.setPixelRatio(getRenderPixelRatio());
 renderer.setSize(innerWidth, innerHeight);
@@ -6402,7 +6402,7 @@ console.log('v7 shell loaded, JS pending');
 //  浮空粒子层 (独立 Points)
 //   v7.1: 速度大幅放慢, 改用 sin/cos 长周期漂移 (优雅而非乱飞)
 // ============================================================
-var FLOAT_COUNT = 1300;
+var FLOAT_COUNT = 600;
 var floatGroup = null;
 var floatPositionsArr = null, floatBaseArr = null, floatPhaseArr = null, floatColorArr = null;
 
@@ -10421,7 +10421,8 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
     // 用 OfflineAudioContext 分离低频重鼓 / 中频鼓身 / 高频敲击感.
     var sr = buffer.sampleRate;
     async function renderBand(hpFreq, lpFreq) {
-      var off = new TmpCtx(1, buffer.length, sr);
+      var maxFrames60 = Math.min(buffer.length, Math.round(60 * sr));
+      var off = new TmpCtx(1, maxFrames60, sr);
       var src = off.createBufferSource(); src.buffer = buffer;
       var node = src;
       if (hpFreq) {
@@ -10441,7 +10442,7 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
         node = lp;
       }
       node.connect(off.destination);
-      src.start(0);
+      src.start(0, 0, 60);
       var renderedBand = await off.startRendering();
       if (token !== beatMapToken) return null;
       await yieldToIdle(beatAnalysisYieldMs(options, 110, 620));
@@ -11600,7 +11601,8 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
     var sr = buffer.sampleRate;
     async function renderDjBand(hpFreq, lpFreq, label) {
       showBeatChip('DJ 分离' + label + '…');
-      var off = new TmpCtx(1, buffer.length, sr);
+      var maxFrames60 = Math.min(buffer.length, Math.round(60 * sr));
+      var off = new TmpCtx(1, maxFrames60, sr);
       var src = off.createBufferSource();
       src.buffer = buffer;
       var node = src;
@@ -11621,7 +11623,7 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
         node = lp;
       }
       node.connect(off.destination);
-      src.start(0);
+      src.start(0, 0, 60);
       var rendered = await off.startRendering();
       if (token !== djBeatMapToken || !djMode.active) return null;
       await yieldToIdle(280);
@@ -25554,7 +25556,7 @@ function initMineradioSplashWebgl(canvas) {
       stencil: false,
       premultipliedAlpha: false,
       preserveDrawingBuffer: false,
-      powerPreference: 'high-performance'
+      powerPreference: 'default'
     }) || canvas.getContext('experimental-webgl');
   } catch (e) {
     gl = null;

@@ -47,15 +47,11 @@ const CHROMIUM_PERFORMANCE_SWITCHES = [
   ['disable-background-timer-throttling'],
   ['disable-renderer-backgrounding'],
   ['disable-backgrounding-occluded-windows'],
-  ['force_high_performance_gpu'],
 ];
 
 // macOS 使用 Metal，Windows 使用 D3D11
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('use-angle', 'metal');
-  // macOS 内存优化
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
-  app.commandLine.appendSwitch('disable-gpu-sandbox');
 } else if (process.platform === 'win32') {
   app.commandLine.appendSwitch('use-angle', 'd3d11');
 }
@@ -933,6 +929,9 @@ function createDesktopLyricsWindow(payload = {}) {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
+    fullscreenable: true,
+    minimizable: true,
+    maximizable: true,
     hasShadow: false,
     resizable: false,
     movable: true,
@@ -1362,8 +1361,11 @@ async function createWindow() {
     show: false,
     frame: false,
     fullscreen: false,
-    transparent: true,
-    backgroundColor: '#00000000',
+    transparent: false,
+    backgroundColor: '#050608',
+    fullscreenable: true,
+    minimizable: true,
+    maximizable: true,
     hasShadow: true,
     autoHideMenuBar: true,
     title: APP_NAME,
