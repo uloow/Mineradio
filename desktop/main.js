@@ -53,6 +53,9 @@ const CHROMIUM_PERFORMANCE_SWITCHES = [
 // macOS 使用 Metal，Windows 使用 D3D11
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('use-angle', 'metal');
+  // macOS 内存优化
+  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
 } else if (process.platform === 'win32') {
   app.commandLine.appendSwitch('use-angle', 'd3d11');
 }

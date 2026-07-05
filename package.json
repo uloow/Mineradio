@@ -67,7 +67,14 @@
         "owner": "XxHuberrr",
         "repo": "Mineradio"
       }
-    ]
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.plist",
+      "entitlementsInherit": "build/entitlements.plist"
+    }
   },
   "mineradio": {
     "update": {
