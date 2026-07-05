@@ -24,14 +24,7 @@ jobs:
         run: |
           git remote add upstream https://github.com/XxHuberrr/Mineradio.git 2>/dev/null || true
           git fetch upstream
-          UPSTREAM=$(git rev-parse upstream/main)
-          LOCAL=$(git rev-parse HEAD)
-          echo "Local: $LOCAL"
-          echo "Upstream: $UPSTREAM"
-          if [ "$LOCAL" != "$UPSTREAM" ]; then
-            echo "New upstream commits found, merging..."
-            git merge upstream/main --no-edit
-          fi
+          git merge upstream/main --no-edit || echo "Already up to date"
 
       - uses: actions/setup-node@v4
         with:
@@ -46,50 +39,10 @@ jobs:
           node install.js
 
       - name: Apply Metal fix
-        run: |
-          node << 'NODESCRIPT'
-          const fs = require('fs');
-          const path = 'desktop/main.js';
-          let content = fs.readFileSync(path, 'utf8');
-          
-          // 如果已经修复，跳过
-          if (content.includes("process.platform === 'darwin'")) {
-            console.log('Metal 修复已存在，跳过');
-            process.exit(0);
-          }
-          
-          // 移除 ['use-angle', 'd3d11']
-          content = content.replace(/,\s*\['use-angle', 'd3d11'\]/, '');
-          
-          // 在 gotSingleInstanceLock 之前添加 Metal 检测代码
-          const metalCode = `
-// macOS 使用 Metal，Windows 使用 D3d11
-if (process.platform === 'darwin') {
-  app.commandLine.appendSwitch('use-angle', 'metal');
-} else if (process.platform === 'win32') {
-  app.commandLine.appendSwitch('use-angle', 'd3d11');
-}
-`;
-          
-          content = content.replace(
-            'const gotSingleInstanceLock = app.requestSingleInstanceLock();',
-            metalCode + '\nconst gotSingleInstanceLock = app.requestSingleInstanceLock();'
-          );
-          
-          fs.writeFileSync(path, content);
-          console.log('Metal 修复已应用');
-          NODESCRIPT
+        run: node apply-metal-fix.js
 
       - name: Configure build
-        run: |
-          node -e '
-          const pkg = JSON.parse(require("fs").readFileSync("package.json"));
-          pkg.build = pkg.build || {};
-          pkg.build.mac = { category: "public.app-category.music" };
-          delete pkg.devDependencies["rcedit"];
-          require("fs").writeFileSync("package.json", JSON.stringify(pkg, null, 2));
-          console.log("Build config updated");
-          '
+        run: node configure-build.js
 
       - name: Build
         run: npx electron-builder --mac
