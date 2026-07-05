@@ -10,6 +10,10 @@ on:
 env:
   ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
 
+permissions:
+  contents: write
+  releases: write
+
 jobs:
   build:
     runs-on: macos-latest
