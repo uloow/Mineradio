@@ -52,10 +52,13 @@ jobs:
       - name: Configure build
         run: node configure-build.js
 
-      - name: Build DMG
+      - name: Build macOS App (dir)
         run: |
-          # 禁用自动发布
-          npx electron-builder --mac dmg --publish never
+          npx electron-builder --mac --dir --publish never
+
+      - name: Package as zip
+        run: |
+          ditto -c -k --keepParent dist/mac-arm64/Mineradio.app Mineradio-macos-arm64.zip
 
       - name: Create Release
         id: create_release
@@ -69,6 +72,6 @@ jobs:
             自动构建，上游同步版本
           draft: false
           prerelease: false
-          files: dist/*.dmg
+          files: Mineradio-macos-arm64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
