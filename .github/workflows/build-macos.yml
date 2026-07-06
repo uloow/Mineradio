@@ -67,9 +67,25 @@ jobs:
           tag_name: macos-latest
           name: Mineradio macOS 构建
           body: |
-            ## Mineradio macOS 构建
+            ## macOS 安装说明
 
-            自动构建，上游同步版本
+            ### 首次运行提示「开发者未验证」？
+
+            终端执行以下命令即可：
+
+            ```bash
+            xattr -cr /Applications/Mineradio.app
+            ```
+
+            ---
+
+            ## 更新日志
+
+            ### v1.1.1 macOS (2026-07-06)
+            - **新增：系统媒体控制** — 锁屏/Control Center/Touch Bar 显示封面/歌名，支持播放/暂停/切歌
+            - 大幅降低 CPU 占用（Renderer ~20%, GPU ~13%）
+            - 修复打包版崩溃问题
+            - 优化封面粒子渲染性能
           draft: false
           prerelease: false
           files: Mineradio-macos-arm64.zip
