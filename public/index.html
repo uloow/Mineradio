@@ -9867,6 +9867,52 @@ function updateControlTrackInfo(song) {
   var artist = document.getElementById('control-artist');
   if (title) title.textContent = song.name || '';
   if (artist) artist.textContent = song.artist || '';
+  // macOS Now Playing: 更新专辑封面和歌名
+  if (navigator.mediaSession && (song.name || song.cover)) {
+    var coverUrl = '';
+    if (song.cover) {
+      // 直接用同尺寸封面 URL（Electron 会自动获取）
+      coverUrl = coverUrlWithSize(song.cover, 360);
+    } else {
+      // 尝试从已有的 thumb-cover 拿
+      var thumb = document.getElementById('thumb-cover');
+      if (thumb && thumb.src && thumb.src.startsWith('http')) coverUrl = thumb.src;
+    }
+    if (song.name !== (navigator.mediaSession.metadata && navigator.mediaSession.metadata.title)) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: song.name || '',
+        artist: song.artist || '',
+        artwork: coverUrl ? [{ src: coverUrl, sizes: '360x360' }] : []
+      });
+    }
+  }
+}
+
+function setupMediaSessionActions() {
+  if (!navigator.mediaSession || typeof navigator.mediaSession.setActionHandler !== 'function') return;
+  navigator.mediaSession.setActionHandler('play', function() {
+    if (typeof togglePlay === 'function') togglePlay();
+  });
+  navigator.mediaSession.setActionHandler('pause', function() {
+    if (typeof togglePlay === 'function') togglePlay();
+  });
+  navigator.mediaSession.setActionHandler('nexttrack', function() {
+    if (typeof nextTrack === 'function') nextTrack();
+  });
+  navigator.mediaSession.setActionHandler('previoustrack', function() {
+    if (typeof prevTrack === 'function') prevTrack();
+  });
+  navigator.mediaSession.setActionHandler('seekto', function(details) {
+    if (window.audio && details && isFinite(details.seekTime)) {
+      window.audio.currentTime = details.seekTime;
+    }
+  });
+}
+
+function updateMediaSessionPlaybackState(state) {
+  if (navigator.mediaSession) {
+    try { navigator.mediaSession.playbackState = state; } catch(e) {}
+  }
 }
 
 function applyCoverCanvas(cv, thumbSrc, opts) {
@@ -18515,6 +18561,7 @@ async function playQueueAt(idx, opts) {
     audio.onended = function(){
       if (token !== trackSwitchToken) return;
       finalizeListenSession(true);
+      updateMediaSessionPlaybackState('paused');
       if (playMode === 'single') setTimeout(function(){ playQueueAt(currentIdx, { autoRepeat: true }); }, 0);
       else setTimeout(nextTrack, 0);
     };
@@ -18647,6 +18694,7 @@ async function attemptAudioPlay(opts) {
       await resumeAudioAnalysis();
       switchPlaybackVisualToEmily();
       playing = true; setPlayIcon(true);
+      updateMediaSessionPlaybackState('playing');
     if (opts.fade !== false) startPlaybackFadeIn();
     else restorePlaybackGain();
     forcePlaybackControlsInteractive();
@@ -18656,6 +18704,7 @@ async function attemptAudioPlay(opts) {
     console.warn('Audio play blocked:', err && (err.message || err));
     restorePlaybackGain();
     playing = false; setPlayIcon(false);
+    updateMediaSessionPlaybackState('paused');
     hideLoading();
     forcePlaybackControlsInteractive();
     if (!opts.silent) showToast(opts.manual ? '播放启动失败, 请重新选择歌曲' : '播放被系统拦截, 请点击播放按钮');
@@ -18682,6 +18731,7 @@ async function togglePlay() {
       await fadeOutAndPauseAudio();
       playing = false;
       setPlayIcon(false);
+      updateMediaSessionPlaybackState('paused');
       hideLoading();
       safePlaybackStep('listen-stats-pause', function(){ updateListenStatsTick(true); });
       forcePlaybackControlsInteractive();
@@ -20040,7 +20090,7 @@ function handleFiles(files) {
     audio.src = url;
     updatePlaybackProgressUi();
     lyricSunEnergy = 0; lyricSunTarget = 0; lyricSunHold = 0; lyricSunAvg = 0; lyricSunPeak = 0.55;
-    audio.onended = function(){ finalizeListenSession(true); playing = false; setPlayIcon(false); };
+    audio.onended = function(){ finalizeListenSession(true); playing = false; setPlayIcon(false); updateMediaSessionPlaybackState('paused'); };
     audio.onloadedmetadata = function(){
       if (currentLocalSong && currentLocalSong.localUrl === url) {
         currentLocalSong.duration = audio && isFinite(audio.duration) ? audio.duration : 0;
@@ -26137,6 +26187,8 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   playMineradioIntroSound();
   splashTimer = setTimeout(markSplashReadyToEnter, 5000);
+  // macOS Media Session 动作处理
+  if (typeof setupMediaSessionActions === 'function') setupMediaSessionActions();
 });
 
 var desktopOverlayPushState = {

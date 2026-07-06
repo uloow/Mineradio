@@ -70,7 +70,8 @@
     ],
     "mac": {
       "category": "public.app-category.music",
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
+      "identity": null,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.plist",
       "entitlementsInherit": "build/entitlements.plist"
